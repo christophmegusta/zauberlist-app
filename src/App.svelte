@@ -167,10 +167,16 @@
 <style>
   .app {
     padding: 8px;
+    filter: drop-shadow(5px 5px 0.5rem black);
   }
 
   .board-create {
     margin-top: -32px;
+
+  }
+  .board-create button {
+    background-color: #00000020;
+    color:white;
   }
 
   .board-select {
@@ -181,6 +187,8 @@
     padding: 8px;
     border: 1px solid #ccc;
     border-radius: 4px;
+    background-color: #00000020;
+    color: white;
   }
 
   .board {
