@@ -7,82 +7,41 @@
   let newTodoTitle = '';
 
   function createTodo() {
-    if (!newTodoTitle) {
-      return; // Ignore empty todo titles
-    }
+    if (!newTodoTitle) return;
 
-    const firstListIndex = currentBoard.lists.findIndex(
-      (list) => list.title === currentBoard.lists[0].title
-    );
-
-    const newTodo = {
-      id: Date.now(),
-      title: newTodoTitle,
-    };
-
+    const firstListIndex = currentBoard.lists.findIndex(list => list.title === currentBoard.lists[0].title);
+    const newTodo = { id: Date.now(), title: newTodoTitle };
     currentBoard.lists[firstListIndex].todos.push(newTodo);
-    newTodoTitle = ''; // Clear the input field
+    newTodoTitle = '';
 
     boards = [...boards];
     currentBoard = { ...currentBoard };
   }
 
-  // https://images.pexels.com/photos/1496372/pexels-photo-1496372.jpeg
   function createBoard(event, title = null, image = null) {
     const newBoard = {
       id: Date.now(),
-      title: title || ("New Board " + (boards.length + 1)),
-      backgroundImage:
-        image || 'https://images.pexels.com/photos/1420440/pexels-photo-1420440.jpeg', // Add the URL of the image as a string here
+      title: title || `New Board ${boards.length + 1}`,
+      backgroundImage: image || 'https://images.pexels.com/photos/1420440/pexels-photo-1420440.jpeg',
       lists: [
-        {
-          id: Date.now() + 1,
-          title: 'To Do',
-          todos: [
-            { id: Date.now() + 2, title: 'Task 1' },
-            { id: Date.now() + 3, title: 'Task 2' },
-          ],
-        },
-        {
-          id: Date.now() + 4,
-          title: 'In Progress',
-          todos: [],
-        },
-        {
-          id: Date.now() + 5,
-          title: 'Done',
-          todos: [],
-        },
-      ],
+        { id: Date.now() + 1, title: 'To Do', todos: [{ id: Date.now() + 2, title: 'Task 1' }, { id: Date.now() + 3, title: 'Task 2' }] },
+        { id: Date.now() + 4, title: 'In Progress', todos: [] },
+        { id: Date.now() + 5, title: 'Done', todos: [] }
+      ]
     };
 
     boards = [...boards, newBoard];
     currentBoard = newBoard;
   }
 
-  function moveTodoHandler(todoId) {
-    const currentListIndex = currentBoard.lists.findIndex((list) => {
-      return list.todos.find((todo) => todo.id === todoId);
-    });
+  function moveTodoHandler(todoId, offset) {
+    const currentListIndex = currentBoard.lists.findIndex(list => list.todos.some(todo => todo.id === todoId));
 
-    if (currentListIndex === -1) {
-      return; // Todo not found
-    }
+    if (currentListIndex === -1) return;
 
-    const todoIndex = currentBoard.lists[currentListIndex].todos.findIndex(
-      (todo) => todo.id === todoId
-    );
-
-    const movedTodo = currentBoard.lists[currentListIndex].todos.splice(
-      todoIndex,
-      1
-    )[0];
-
-    const nextListIndex =
-      currentListIndex === currentBoard.lists.length - 1
-        ? currentListIndex
-        : currentListIndex + 1;
-
+    const todoIndex = currentBoard.lists[currentListIndex].todos.findIndex(todo => todo.id === todoId);
+    const movedTodo = currentBoard.lists[currentListIndex].todos.splice(todoIndex, 1)[0];
+    const nextListIndex = currentListIndex + offset;
     currentBoard.lists[nextListIndex].todos.push(movedTodo);
 
     boards = [...boards];
@@ -90,39 +49,15 @@
   }
 
   function moveTodoBack(todoId) {
-    const currentListIndex = currentBoard.lists.findIndex((list) => {
-      return list.todos.find((todo) => todo.id === todoId);
-    });
-
-    if (currentListIndex === -1) {
-      return; // Todo not found
-    }
-
-    const todoIndex = currentBoard.lists[currentListIndex].todos.findIndex(
-      (todo) => todo.id === todoId
-    );
-
-    const movedTodo = currentBoard.lists[currentListIndex].todos.splice(
-      todoIndex,
-      1
-    )[0];
-
-    const prevListIndex =
-      currentListIndex === 0 ? 0 : currentListIndex - 1;
-
-    currentBoard.lists[prevListIndex].todos.push(movedTodo);
-
-    boards = [...boards];
-    currentBoard = { ...currentBoard };
+    moveTodoHandler(todoId, -1);
   }
 
-  onMount((e) => {
-    createBoard(e);
-    createBoard(e, null, 'https://images.pexels.com/photos/1496372/pexels-photo-1496372.jpeg');
-    createBoard(e, null, 'https://images.pexels.com/photos/628281/pexels-photo-628281.jpeg');
-    createBoard(e, null, 'https://images.pexels.com/photos/220118/pexels-photo-220118.jpeg');
-    createBoard(e, null, 'https://images.pexels.com/photos/1624496/pexels-photo-1624496.jpeg');
-    
+  onMount(() => {
+    createBoard();
+    createBoard(null, 'https://images.pexels.com/photos/1496372/pexels-photo-1496372.jpeg');
+    createBoard(null, 'https://images.pexels.com/photos/628281/pexels-photo-628281.jpeg');
+    createBoard(null, 'https://images.pexels.com/photos/220118/pexels-photo-220118.jpeg');
+    createBoard(null, 'https://images.pexels.com/photos/1624496/pexels-photo-1624496.jpeg');
   });
 </script>
 
@@ -154,7 +89,7 @@
 
       <div class="lists-container">
         {#each currentBoard.lists as list}
-          <List title={list.title} todos={list.todos} moveTodo={moveTodoHandler} moveTodoBack={moveTodoBack} />
+          <List {list} moveTodo={moveTodoHandler} moveTodoBack={moveTodoBack} />
         {/each}
       </div>
     </div>
@@ -172,8 +107,8 @@
 
   .board-create {
     margin-top: -32px;
-
   }
+
   .board-create button {
     background-color: #00000020;
     color:white;
@@ -239,12 +174,11 @@
     border-radius: 4px;
     color: #fff;
     cursor: pointer;
-		position:relative;
-		
-		right:55px;
-		margin:0;
-		margin-bottom:7px;
-		margin-right:-30px;
+    position:relative;
+    right:55px;
+    margin:0;
+    margin-bottom:7px;
+    margin-right:-30px;
   }
 
   .lists-container {

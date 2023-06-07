@@ -6,7 +6,8 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
-    "start": "sirv public --no-clear"
+    "start": "sirv public --no-clear",
+    "peer": "peerjs --port 9000 --key peerjs --path /app"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^24.0.0",
@@ -19,6 +20,8 @@
     "svelte": "^3.55.0"
   },
   "dependencies": {
+    "electron": "^25.0.1",
+    "peer": "^1.0.0",
     "sirv-cli": "^2.0.0"
   }
 }
