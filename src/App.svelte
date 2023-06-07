@@ -200,10 +200,8 @@
   }
 
   .add-todo-form {
-    /* position: absolute; */
     top: 16px;
     left: 50%;
-    /* transform: translateX(-50%); */
     width: calc(100% - 32px);
     margin-bottom: 16px;
     margin-left: 8px;
