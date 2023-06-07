@@ -12,7 +12,7 @@
   const peer = new Peer();
 
   let connectedPeers = [];
-  let isUpdating = false; // Flag to track if update is triggered by received message
+  let isUpdating = false;
 
   peer.on('open', (id) => {
     console.log('My peer ID is: ' + id);
@@ -198,6 +198,19 @@
     createBoard(null, null, 'https://images.pexels.com/photos/628281/pexels-photo-628281.jpeg');
     createBoard(null, null, 'https://images.pexels.com/photos/220118/pexels-photo-220118.jpeg');
     createBoard(null, null, 'https://images.pexels.com/photos/1624496/pexels-photo-1624496.jpeg');
+
+    const handleBeforeUnload = () => {
+      connectedPeers.forEach((peer) => {
+        peer.close();
+      });
+			peer.destroy();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   });
 
   function connectToPeer() {
