@@ -20,7 +20,6 @@
     "svelte": "^3.55.0"
   },
   "dependencies": {
-    "electron": "^25.0.1",
     "peer": "^1.0.0",
     "sirv-cli": "^2.0.0"
   }
