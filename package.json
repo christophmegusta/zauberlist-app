@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "peer": "^1.0.0",
+    "peerjs": "^1.4.7",
     "sirv-cli": "^2.0.0"
   }
 }

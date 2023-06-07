@@ -1,39 +1,90 @@
 <script>
-  import List from './List.svelte';
+  import { writable, get } from 'svelte/store';
   import { onMount } from 'svelte';
+  import List from './List.svelte';
+  import Peer from 'peerjs';
 
-  let boards = [];
-  let currentBoard = null;
+  const boards = writable([]);
+  const currentBoard = writable(null);
+  const peerId = writable(null);
   let newTodoTitle = '';
+
+  const peer = new Peer();
+
+  let connectedPeers = [];
+  let isUpdating = false; // Flag to track if update is triggered by received message
+
+  peer.on('open', (id) => {
+    console.log('My peer ID is: ' + id);
+    peerId.set(id);
+  });
+
+  peer.on('connection', (connection) => {
+    handlePeerConnection(connection);
+  });
+
+  function handlePeerConnection(connection) {
+    connection.on('open', () => {
+      console.log('Connected to peer: ' + connection.peer);
+      connectedPeers.push(connection);
+
+      connection.on('close', () => {
+        console.log('Disconnected from peer: ' + connection.peer);
+        connectedPeers = connectedPeers.filter(
+          (peer) => peer.peer !== connection.peer
+        );
+      });
+
+      connection.on('data', (data) => {
+        console.log('Received data from peer: ', data);
+        const { type, data: receivedData } = JSON.parse(data);
+
+        if (type === 'updateBoard' && !isUpdating) {
+          const storeData = get(currentBoard);
+          if (JSON.stringify(receivedData) !== JSON.stringify(storeData)) {
+            currentBoard.set(receivedData);
+          }
+        }
+      });
+    });
+  }
 
   function createTodo() {
     if (!newTodoTitle) {
-      return; // Ignore empty todo titles
+      return;
     }
 
-    const firstListIndex = currentBoard.lists.findIndex(
-      (list) => list.title === currentBoard.lists[0].title
-    );
+    const { subscribe, update } = currentBoard;
+    update((value) => {
+      const firstListIndex = value.lists.findIndex(
+        (list) => list.title === value.lists[0].title
+      );
 
-    const newTodo = {
-      id: Date.now(),
-      title: newTodoTitle,
-    };
+      const newTodo = {
+        id: Date.now(),
+        title: newTodoTitle,
+      };
 
-    currentBoard.lists[firstListIndex].todos.push(newTodo);
-    newTodoTitle = ''; // Clear the input field
+      value.lists[firstListIndex].todos.push(newTodo);
+      newTodoTitle = '';
 
-    boards = [...boards];
-    currentBoard = { ...currentBoard };
+      isUpdating = true;
+      connectedPeers.forEach((peer) => {
+        peer.send(JSON.stringify({ type: 'updateBoard', data: value }));
+      });
+      isUpdating = false;
+
+      return { ...value };
+    });
   }
 
-  // https://images.pexels.com/photos/1496372/pexels-photo-1496372.jpeg
   function createBoard(event, title = null, image = null) {
     const newBoard = {
       id: Date.now(),
-      title: title || ("New Board " + (boards.length + 1)),
+      title: title || `New Board ${$boards.length + 1}`,
       backgroundImage:
-        image || 'https://images.pexels.com/photos/1420440/pexels-photo-1420440.jpeg', // Add the URL of the image as a string here
+        image ||
+        'https://images.pexels.com/photos/1420440/pexels-photo-1420440.jpeg',
       lists: [
         {
           id: Date.now() + 1,
@@ -56,87 +107,121 @@
       ],
     };
 
-    boards = [...boards, newBoard];
-    currentBoard = newBoard;
+    const { subscribe, update } = boards;
+    update((value) => {
+      const newBoards = [...value, newBoard];
+      isUpdating = true;
+      connectedPeers.forEach((peer) => {
+        peer.send(JSON.stringify({ type: 'updateBoard', data: newBoards }));
+      });
+      isUpdating = false;
+      return newBoards;
+    });
+
+    currentBoard.set(newBoard);
   }
 
   function moveTodoHandler(todoId) {
-    const currentListIndex = currentBoard.lists.findIndex((list) => {
-      return list.todos.find((todo) => todo.id === todoId);
+    const { subscribe, update } = currentBoard;
+    update((value) => {
+      const currentListIndex = value.lists.findIndex((list) => {
+        return list.todos.find((todo) => todo.id === todoId);
+      });
+
+      if (currentListIndex === -1) {
+        return value;
+      }
+
+      const todoIndex = value.lists[currentListIndex].todos.findIndex(
+        (todo) => todo.id === todoId
+      );
+
+      const movedTodo = value.lists[currentListIndex].todos.splice(
+        todoIndex,
+        1
+      )[0];
+
+      const nextListIndex =
+        currentListIndex === value.lists.length - 1
+          ? currentListIndex
+          : currentListIndex + 1;
+
+      value.lists[nextListIndex].todos.push(movedTodo);
+
+      isUpdating = true;
+      connectedPeers.forEach((peer) => {
+        peer.send(JSON.stringify({ type: 'updateBoard', data: value }));
+      });
+      isUpdating = false;
+
+      return { ...value };
     });
-
-    if (currentListIndex === -1) {
-      return; // Todo not found
-    }
-
-    const todoIndex = currentBoard.lists[currentListIndex].todos.findIndex(
-      (todo) => todo.id === todoId
-    );
-
-    const movedTodo = currentBoard.lists[currentListIndex].todos.splice(
-      todoIndex,
-      1
-    )[0];
-
-    const nextListIndex =
-      currentListIndex === currentBoard.lists.length - 1
-        ? currentListIndex
-        : currentListIndex + 1;
-
-    currentBoard.lists[nextListIndex].todos.push(movedTodo);
-
-    boards = [...boards];
-    currentBoard = { ...currentBoard };
   }
 
   function moveTodoBack(todoId) {
-    const currentListIndex = currentBoard.lists.findIndex((list) => {
-      return list.todos.find((todo) => todo.id === todoId);
+    const { subscribe, update } = currentBoard;
+    update((value) => {
+      const currentListIndex = value.lists.findIndex((list) => {
+        return list.todos.find((todo) => todo.id === todoId);
+      });
+
+      if (currentListIndex === -1) {
+        return value;
+      }
+
+      const todoIndex = value.lists[currentListIndex].todos.findIndex(
+        (todo) => todo.id === todoId
+      );
+
+      const movedTodo = value.lists[currentListIndex].todos.splice(
+        todoIndex,
+        1
+      )[0];
+
+      const prevListIndex = currentListIndex === 0 ? 0 : currentListIndex - 1;
+
+      value.lists[prevListIndex].todos.push(movedTodo);
+
+      isUpdating = true;
+      connectedPeers.forEach((peer) => {
+        peer.send(JSON.stringify({ type: 'updateBoard', data: value }));
+      });
+      isUpdating = false;
+
+      return { ...value };
     });
-
-    if (currentListIndex === -1) {
-      return; // Todo not found
-    }
-
-    const todoIndex = currentBoard.lists[currentListIndex].todos.findIndex(
-      (todo) => todo.id === todoId
-    );
-
-    const movedTodo = currentBoard.lists[currentListIndex].todos.splice(
-      todoIndex,
-      1
-    )[0];
-
-    const prevListIndex =
-      currentListIndex === 0 ? 0 : currentListIndex - 1;
-
-    currentBoard.lists[prevListIndex].todos.push(movedTodo);
-
-    boards = [...boards];
-    currentBoard = { ...currentBoard };
   }
 
-  // onMount((e) => {
-  //   createBoard(e);
-  //   createBoard(e, null, 'https://images.pexels.com/photos/1496372/pexels-photo-1496372.jpeg');
-  //   createBoard(e, null, 'https://images.pexels.com/photos/628281/pexels-photo-628281.jpeg');
-  //   createBoard(e, null, 'https://images.pexels.com/photos/220118/pexels-photo-220118.jpeg');
-  //   createBoard(e, null, 'https://images.pexels.com/photos/1624496/pexels-photo-1624496.jpeg');
-    
-  // });
+  onMount(() => {
+    createBoard(null);
+    createBoard(null, null, 'https://images.pexels.com/photos/1496372/pexels-photo-1496372.jpeg');
+    createBoard(null, null, 'https://images.pexels.com/photos/628281/pexels-photo-628281.jpeg');
+    createBoard(null, null, 'https://images.pexels.com/photos/220118/pexels-photo-220118.jpeg');
+    createBoard(null, null, 'https://images.pexels.com/photos/1624496/pexels-photo-1624496.jpeg');
+  });
+
+  function connectToPeer() {
+    const remotePeerId = prompt('Enter the Peer ID to connect:');
+    const connection = peer.connect(remotePeerId);
+    handlePeerConnection(connection);
+  }
 </script>
 
 <div class="app">
-  {#if currentBoard}
-    <div class="board" style="background-image: url({currentBoard.backgroundImage})">
+  {#if $currentBoard}
+    <div class="board" style="background-image: url({$currentBoard.backgroundImage})">
+      <div class="title-bar">
+        <a href="#{$peerId}" on:click={() => navigator.clipboard.writeText($peerId)}>Copy Your Peer ID: {$peerId}</a>
+      </div>
+
       <div class="controls-container">
         <div class="board-create">
           <button on:click={createBoard}>+</button>
         </div>
 
         <div class="board-select">
-          <select bind:value={currentBoard} class="board-select-dropdown">
-            {#each boards as board}
+          <select bind:value={$currentBoard} class="board-select-dropdown">
+            {#each $boards as board}
               <option value={board}>{board.title}</option>
             {/each}
           </select>
@@ -150,10 +235,14 @@
             </div>
           </form>
         </div>
+
+        <div class="connect-peers">
+          <button on:click={connectToPeer}>Connect</button>
+        </div>
       </div>
 
       <div class="lists-container">
-        {#each currentBoard.lists as list}
+        {#each $currentBoard.lists as list}
           <List title={list.title} todos={list.todos} moveTodo={moveTodoHandler} moveTodoBack={moveTodoBack} />
         {/each}
       </div>
@@ -170,9 +259,25 @@
     filter: drop-shadow(5px 5px 0.5rem black);
   }
 
+  .title-bar {
+    margin-top:-20px;
+    padding-top:10px;
+    height:10px;
+    font-size:6px;
+    text-align: right;
+    color:#00000090;
+  }
+  .title-bar a {
+    color:#00000090;
+    text-decoration: none;
+  }
+  .title-bar a:hover {
+    color:yellow;
+    text-decoration: none;
+  }
+
   .board-create {
     margin-top: -32px;
-
   }
   .board-create button {
     background-color: #00000020;
@@ -211,6 +316,17 @@
   .controls-container {
     display: flex;
     align-items: center;
+  }
+
+  .connect-peers {
+    margin-top: -31px;
+    margin-left: -12px;
+  }
+
+  .connect-peers button {
+    border-radius: 4px;
+    background-color: #00000020;
+    color: white;    
   }
 
   .input-container {
