@@ -1,6 +1,7 @@
 <script>
   export let todo;
   export let moveTodo;
+  export let moveTodoBack;
 </script>
 
 <div class="todo">
