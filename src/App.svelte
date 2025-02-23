@@ -121,7 +121,7 @@
     currentBoard.set(newBoard);
   }
 
-  function moveTodoHandler(todoId) {
+  function moveTodoHandler(todoId, targetListIndex = null) {
     const { subscribe, update } = currentBoard;
     update((value) => {
       const currentListIndex = value.lists.findIndex((list) => {
@@ -141,10 +141,11 @@
         1
       )[0];
 
-      const nextListIndex =
-        currentListIndex === value.lists.length - 1
+      const nextListIndex = targetListIndex !== null 
+        ? targetListIndex
+        : (currentListIndex === value.lists.length - 1
           ? currentListIndex
-          : currentListIndex + 1;
+          : currentListIndex + 1);
 
       value.lists[nextListIndex].todos.push(movedTodo);
 
@@ -158,7 +159,7 @@
     });
   }
 
-  function moveTodoBack(todoId) {
+  function moveTodoBack(todoId, targetListIndex = null) {
     const { subscribe, update } = currentBoard;
     update((value) => {
       const currentListIndex = value.lists.findIndex((list) => {
@@ -178,7 +179,9 @@
         1
       )[0];
 
-      const prevListIndex = currentListIndex === 0 ? 0 : currentListIndex - 1;
+      const prevListIndex = targetListIndex !== null 
+        ? targetListIndex 
+        : (currentListIndex === 0 ? 0 : currentListIndex - 1);
 
       value.lists[prevListIndex].todos.push(movedTodo);
 
@@ -255,8 +258,14 @@
       </div>
 
       <div class="lists-container">
-        {#each $currentBoard.lists as list}
-          <List title={list.title} todos={list.todos} moveTodo={moveTodoHandler} moveTodoBack={moveTodoBack} />
+        {#each $currentBoard.lists as list, index}
+          <List 
+            title={list.title} 
+            todos={list.todos} 
+            moveTodo={moveTodoHandler} 
+            moveTodoBack={moveTodoBack}
+            listIndex={index} 
+          />
         {/each}
       </div>
     </div>
@@ -380,6 +389,7 @@
     display: flex;
     justify-content: space-between;
     flex-wrap: wrap;
+    gap: 16px;
   }
 
   .board .list {
